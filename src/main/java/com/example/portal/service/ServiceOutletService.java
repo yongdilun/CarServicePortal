@@ -37,7 +37,8 @@ public class ServiceOutletService {
      * @param outletId The outlet ID
      * @return The service outlet or null if not found
      */
-    @Cacheable(value = "outlets", key = "#outletId")
+    // Temporarily disable caching to avoid ClassCastException
+    // @Cacheable(value = "outlets", key = "#outletId")
     public ServiceOutlet findById(Integer outletId) {
         logger.debug("Fetching service outlet with ID: {} from database", outletId);
         return outletMapper.findById(outletId);

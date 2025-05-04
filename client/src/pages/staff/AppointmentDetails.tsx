@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
-import axios from '../../api/axios';
+import { Link, useParams } from 'react-router-dom';
 import { Appointment, confirmAppointment, AppointmentConfirmationData } from '../../api/appointmentApi';
+import { StaffAppointment } from '../../api/staffApi';
 import TimePicker from '../../components/common/TimePicker';
 import { ConfirmationDialog } from '../../components/ui';
 
+// Define a type that can be either Appointment or StaffAppointment
+type AppointmentType = Appointment | StaffAppointment;
+
 const StaffAppointmentDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [appointment, setAppointment] = useState<Appointment | null>(null);
+  const [appointment, setAppointment] = useState<AppointmentType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [updateSuccess, setUpdateSuccess] = useState('');
@@ -31,14 +33,19 @@ const StaffAppointmentDetails: React.FC = () => {
 
       try {
         setLoading(true);
-        const response = await axios.get(`/api/staff/appointments/${id}`);
-        setAppointment(response.data);
+
+        // Import the staffApi dynamically to avoid circular dependencies
+        const { getStaffAppointmentDetails, getStaffByOutlet } = await import('../../api/staffApi');
+
+        // Use the staffApi to get appointment details
+        const appointmentData = await getStaffAppointmentDetails(parseInt(id));
+        setAppointment(appointmentData);
 
         // If the appointment is pending, fetch staff members from the same outlet
-        if (response.data.appointmentStatus === 'PENDING') {
-          const outletId = response.data.outletId;
-          const staffResponse = await axios.get(`/api/staff/outlet/${outletId}`);
-          setStaffList(staffResponse.data);
+        if (appointmentData.appointmentStatus === 'PENDING') {
+          const outletId = appointmentData.outletId;
+          const staffData = await getStaffByOutlet(outletId);
+          setStaffList(staffData);
         }
 
         setError('');
@@ -72,7 +79,12 @@ const StaffAppointmentDetails: React.FC = () => {
 
     try {
       setLoading(true);
-      await axios.put(`/api/staff/appointments/${appointment.appointmentId}/status`, { status: newStatus });
+
+      // Import the staffApi dynamically to avoid circular dependencies
+      const { updateAppointmentStatus: updateStatus } = await import('../../api/staffApi');
+
+      // Use the staffApi to update the status
+      await updateStatus(appointment.appointmentId, newStatus);
 
       // Update the appointment status in the local state
       setAppointment({
@@ -112,14 +124,34 @@ const StaffAppointmentDetails: React.FC = () => {
     e.preventDefault();
     if (!appointment) return;
 
+    // Validate required fields
+    if (!confirmationData.staffId) {
+      setError('Please select a staff member');
+      return;
+    }
+
+    if (!confirmationData.estimatedFinishTime) {
+      setError('Please enter an estimated finish time');
+      return;
+    }
+
     try {
       setLoading(true);
+      setError(''); // Clear any previous errors
+
+      console.log('Sending confirmation data:', {
+        appointmentId: appointment.appointmentId,
+        data: confirmationData
+      });
+
       const response = await confirmAppointment(appointment.appointmentId, confirmationData);
+      console.log('Confirmation response:', response);
 
       // Update the appointment in the local state
       setAppointment({
         ...appointment,
         appointmentStatus: 'SCHEDULED',
+        staffId: confirmationData.staffId,
         estimatedFinishTime: confirmationData.estimatedFinishTime
       });
 
@@ -127,14 +159,14 @@ const StaffAppointmentDetails: React.FC = () => {
       setShowConfirmationForm(false);
       setTimeout(() => setUpdateSuccess(''), 3000);
     } catch (err: any) {
-      setError('Failed to confirm appointment. ' + (err.response?.data?.error || err.message));
       console.error('Error confirming appointment:', err);
+      setError('Failed to confirm appointment. ' + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDate = (appointment: Appointment) => {
+  const formatDate = (appointment: AppointmentType) => {
     if (!appointment.timeSlot) return 'N/A';
 
     const { timeYear, timeMonth, timeDay } = appointment.timeSlot;
@@ -355,7 +387,12 @@ const StaffAppointmentDetails: React.FC = () => {
                 <span className="font-medium">Address:</span> {appointment.outlet?.outletAddress || 'N/A'}
               </p>
               <p>
-                <span className="font-medium">City:</span> {appointment.outlet?.outletCity || 'N/A'}, {appointment.outlet?.outletState || 'N/A'} {appointment.outlet?.outletPostalCode || 'N/A'}
+                <span className="font-medium">Location:</span> {
+                  // Check if it's a ServiceOutlet (from Appointment) or the simpler outlet (from StaffAppointment)
+                  appointment.outlet && 'outletCity' in appointment.outlet ?
+                  `${appointment.outlet.outletCity || 'N/A'}, ${appointment.outlet.outletState || 'N/A'} ${appointment.outlet.outletPostalCode || 'N/A'}` :
+                  'Details not available'
+                }
               </p>
             </div>
           </div>
@@ -369,7 +406,10 @@ const StaffAppointmentDetails: React.FC = () => {
                 <>
                   {!showConfirmationForm ? (
                     <button
-                      onClick={() => setShowConfirmationForm(true)}
+                      onClick={() => {
+                        setShowConfirmationForm(true);
+                        setError(''); // Clear any previous errors
+                      }}
                       className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
                       disabled={loading}
                     >
@@ -377,16 +417,22 @@ const StaffAppointmentDetails: React.FC = () => {
                     </button>
                   ) : (
                     <form onSubmit={handleConfirmAppointment} className="mt-4">
+                      {error && (
+                        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
+                          <p>{error}</p>
+                        </div>
+                      )}
+
                       <div className="mb-4">
                         <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="staffId">
-                          Assign Staff Member
+                          Assign Staff Member <span className="text-red-500">*</span>
                         </label>
                         <select
                           id="staffId"
                           name="staffId"
                           value={confirmationData.staffId || ''}
                           onChange={handleConfirmationChange}
-                          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                          className={`shadow appearance-none border ${!confirmationData.staffId && error ? 'border-red-500' : 'border-gray-300'} rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline`}
                           required
                         >
                           <option value="">Select a staff member</option>
@@ -403,7 +449,7 @@ const StaffAppointmentDetails: React.FC = () => {
 
                       <div className="mb-4">
                         <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="estimatedFinishTime">
-                          Estimated Finish Time
+                          Estimated Finish Time <span className="text-red-500">*</span>
                         </label>
                         <TimePicker
                           id="estimatedFinishTime"
@@ -411,6 +457,7 @@ const StaffAppointmentDetails: React.FC = () => {
                           value={confirmationData.estimatedFinishTime || ''}
                           onChange={handleTimeChange}
                           required
+                          className={!confirmationData.estimatedFinishTime && error ? 'border-red-500' : ''}
                         />
                         <p className="text-sm text-gray-500 mt-1">
                           Enter the estimated time when the service will be completed
@@ -420,14 +467,25 @@ const StaffAppointmentDetails: React.FC = () => {
                       <div className="flex gap-3">
                         <button
                           type="submit"
-                          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center justify-center min-w-[100px]"
                           disabled={loading}
                         >
-                          {loading ? 'Confirming...' : 'Confirm'}
+                          {loading ? (
+                            <>
+                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Confirming...
+                            </>
+                          ) : 'Confirm'}
                         </button>
                         <button
                           type="button"
-                          onClick={() => setShowConfirmationForm(false)}
+                          onClick={() => {
+                            setShowConfirmationForm(false);
+                            setError('');
+                          }}
                           className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
                           disabled={loading}
                         >

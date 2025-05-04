@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { getCurrentDateMalaysia, formatDateForInput, isToday, formatDate, formatTime } from '../../utils/dateUtils';
@@ -26,6 +26,7 @@ interface Appointment {
 
 const TimeSchedule: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -51,15 +52,15 @@ const TimeSchedule: React.FC = () => {
 
       try {
         setLoading(true);
-        const response = await axios.get(`/api/staff/appointments/schedule`, {
-          params: {
-            staffId: user.id,
-            date: selectedDate
-          }
-        });
+
+        // Import the staffApi dynamically to avoid circular dependencies
+        const { getStaffSchedule } = await import('../../api/staffApi');
+
+        // Use the staffApi to get the schedule
+        const appointments = await getStaffSchedule(user.id, selectedDate);
 
         // Sort appointments by time
-        const sortedAppointments = response.data.sort((a: Appointment, b: Appointment) => {
+        const sortedAppointments = appointments.sort((a: Appointment, b: Appointment) => {
           return a.timeSlot.timeClocktime.localeCompare(b.timeSlot.timeClocktime);
         });
 
@@ -68,6 +69,8 @@ const TimeSchedule: React.FC = () => {
       } catch (err: any) {
         setError('Failed to load appointments. ' + (err.response?.data?.error || err.message));
         console.error('Error fetching appointments:', err);
+        // Set empty appointments array to prevent UI from breaking
+        setAppointments([]);
       } finally {
         setLoading(false);
       }
@@ -439,7 +442,7 @@ const TimeSchedule: React.FC = () => {
                   key={appointment.appointmentId}
                   style={getAppointmentStyle(appointment)}
                   className="cursor-pointer hover:opacity-95 hover:shadow-lg transition-all transform hover:-translate-y-0.5 group"
-                  onClick={() => window.location.href = `/staff/appointments/${appointment.appointmentId}`}
+                  onClick={() => navigate(`/staff/appointments/${appointment.appointmentId}`)}
                 >
                   {/* Time indicator dots */}
                   <div className="absolute -left-1 top-0 w-2 h-2 rounded-full bg-white"></div>

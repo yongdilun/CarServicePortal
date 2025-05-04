@@ -33,13 +33,30 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(authorize -> authorize
+                // Public endpoints
                 .requestMatchers("/api/public/**", "/api/auth/**").permitAll()
-                .requestMatchers("/api/customer/vehicles/**").permitAll() // Temporarily allow access to vehicle endpoints
                 .requestMatchers("/api/services/**").permitAll() // Allow access to service endpoints
-                .requestMatchers("/api/customer/appointments/**").permitAll() // Temporarily allow access to appointment endpoints
-                .requestMatchers("/api/staff/appointments/**").permitAll() // Temporarily allow access to staff appointment endpoints
-                .requestMatchers("/api/staff/outlet/**").permitAll() // Temporarily allow access to staff by outlet endpoint
-                .requestMatchers("/api/notifications/**").permitAll() // Allow access to notification endpoints
+                .requestMatchers("/api/outlets/**").permitAll() // Allow access to outlet endpoints
+
+                // Temporarily allow access to these endpoints for debugging
+                .requestMatchers("/api/customer/vehicles/**").permitAll()
+                .requestMatchers("/api/customer/appointments/**").permitAll()
+                .requestMatchers("/api/customer/appointments").permitAll()
+                .requestMatchers("/api/notifications/**").permitAll()
+
+                // Temporarily allow access to staff endpoints for debugging
+                .requestMatchers("/api/staff/appointments/**").permitAll()
+                .requestMatchers("/api/staff/outlet/**").permitAll()
+                .requestMatchers("/api/staff/schedule/**").permitAll()
+                .requestMatchers("/api/staff/services/**").permitAll()
+                .requestMatchers("/api/reports/**").permitAll()
+
+                // Explicitly allow access to appointment details
+                .requestMatchers("/api/staff/appointments/{id}").permitAll()
+                .requestMatchers("/api/customer/appointments/{id}").permitAll()
+                .requestMatchers("/api/appointments/{id}").permitAll()
+
+                // Role-based access
                 .requestMatchers("/api/staff/**").hasRole("STAFF")
                 .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
                 .anyRequest().authenticated()

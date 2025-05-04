@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  getPopularServiceTypes, 
-  getBusyPeriodsAnalysis, 
-  getStaffPerformanceMetrics, 
-  getRevenueReporting,
+import {
   ServicePopularity,
   BusyPeriodsAnalysis,
   StaffPerformance,
   RevenueReport
-} from '../../api/reportingApi';
+} from '../../api/staffApi';
 import { Card } from '../../components/ui';
 
 const Reports: React.FC = () => {
@@ -16,7 +12,7 @@ const Reports: React.FC = () => {
   const [endDate, setEndDate] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const [popularServices, setPopularServices] = useState<ServicePopularity[]>([]);
   const [busyPeriods, setBusyPeriods] = useState<BusyPeriodsAnalysis | null>(null);
   const [staffPerformance, setStaffPerformance] = useState<StaffPerformance[]>([]);
@@ -25,8 +21,16 @@ const Reports: React.FC = () => {
   const fetchReports = async () => {
     setLoading(true);
     setError('');
-    
+
     try {
+      // Import the staffApi dynamically to avoid circular dependencies
+      const {
+        getPopularServiceTypes,
+        getBusyPeriodsAnalysis,
+        getStaffPerformanceMetrics,
+        getRevenueReporting
+      } = await import('../../api/staffApi');
+
       // Fetch all reports in parallel
       const [
         popularServicesData,
@@ -39,7 +43,7 @@ const Reports: React.FC = () => {
         getStaffPerformanceMetrics(startDate || undefined, endDate || undefined),
         getRevenueReporting(startDate || undefined, endDate || undefined)
       ]);
-      
+
       setPopularServices(popularServicesData);
       setBusyPeriods(busyPeriodsData);
       setStaffPerformance(staffPerformanceData);
@@ -65,13 +69,13 @@ const Reports: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Reports & Analytics</h1>
-      
+
       {error && (
         <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
           <p>{error}</p>
         </div>
       )}
-      
+
       {/* Date Range Filter */}
       <Card className="mb-6">
         <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-4">
@@ -84,7 +88,7 @@ const Reports: React.FC = () => {
               className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
             <input
@@ -94,7 +98,7 @@ const Reports: React.FC = () => {
               className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
             />
           </div>
-          
+
           <div>
             <button
               type="submit"
@@ -106,7 +110,7 @@ const Reports: React.FC = () => {
           </div>
         </form>
       </Card>
-      
+
       {loading ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -147,7 +151,7 @@ const Reports: React.FC = () => {
               </div>
             )}
           </Card>
-          
+
           {/* Staff Performance */}
           <Card>
             <h2 className="text-xl font-semibold mb-4">Staff Performance</h2>
@@ -194,7 +198,7 @@ const Reports: React.FC = () => {
               </div>
             )}
           </Card>
-          
+
           {/* Busy Periods */}
           <Card>
             <h2 className="text-xl font-semibold mb-4">Busy Periods</h2>
@@ -207,10 +211,10 @@ const Reports: React.FC = () => {
                   {Object.entries(busyPeriods.byDayOfWeek).map(([day, count]) => (
                     <div key={day} className="text-center">
                       <div className="text-sm font-medium text-gray-700">{day.substring(0, 3)}</div>
-                      <div 
-                        className="bg-blue-500 mx-auto mt-1" 
-                        style={{ 
-                          height: `${Math.max(20, count * 5)}px`, 
+                      <div
+                        className="bg-blue-500 mx-auto mt-1"
+                        style={{
+                          height: `${Math.max(20, count * 5)}px`,
                           width: '20px',
                           borderRadius: '2px'
                         }}
@@ -219,14 +223,14 @@ const Reports: React.FC = () => {
                     </div>
                   ))}
                 </div>
-                
+
                 <h3 className="text-lg font-medium mb-2">By Hour of Day</h3>
                 <div className="flex items-end h-32 space-x-2 mb-6">
                   {Object.entries(busyPeriods.byHourOfDay).map(([hour, count]) => (
                     <div key={hour} className="flex-1 text-center">
-                      <div 
-                        className="bg-green-500 mx-auto" 
-                        style={{ 
+                      <div
+                        className="bg-green-500 mx-auto"
+                        style={{
                           height: `${Math.max(4, (count / Math.max(...Object.values(busyPeriods.byHourOfDay))) * 100)}%`,
                           borderRadius: '2px'
                         }}
@@ -238,7 +242,7 @@ const Reports: React.FC = () => {
               </div>
             )}
           </Card>
-          
+
           {/* Revenue Report */}
           <Card>
             <h2 className="text-xl font-semibold mb-4">Revenue Report</h2>
@@ -252,7 +256,7 @@ const Reports: React.FC = () => {
                     ${revenueReport.totalRevenue.toFixed(2)}
                   </p>
                 </div>
-                
+
                 <h3 className="text-lg font-medium mb-2">Revenue by Service</h3>
                 <div className="overflow-x-auto mb-4">
                   <table className="min-w-full divide-y divide-gray-200">

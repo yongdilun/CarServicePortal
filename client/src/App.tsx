@@ -4,6 +4,9 @@ import Layout from './components/Layout';
 import Home from './pages/Home';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+import ProtectedRoute from './components/guards/ProtectedRoute';
+import GuestRoute from './components/guards/GuestRoute';
+import HomeRoute from './components/guards/HomeRoute';
 
 // Auth pages
 import CustomerLogin from './pages/auth/CustomerLogin';
@@ -41,35 +44,127 @@ function App() {
       <NotificationProvider>
         <Routes>
           <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
+          <Route index element={
+            <HomeRoute>
+              <Home />
+            </HomeRoute>
+          } />
 
-        {/* Auth Routes */}
-        <Route path="login/customer" element={<CustomerLogin />} />
-        <Route path="login/staff" element={<StaffLogin />} />
-        <Route path="register/customer" element={<CustomerSignup />} />
-        <Route path="register/staff" element={<StaffSignup />} />
+        {/* Auth Routes - Only accessible to guests */}
+        <Route path="login/customer" element={
+          <GuestRoute>
+            <CustomerLogin />
+          </GuestRoute>
+        } />
+        <Route path="login/staff" element={
+          <GuestRoute>
+            <StaffLogin />
+          </GuestRoute>
+        } />
+        <Route path="register/customer" element={
+          <GuestRoute>
+            <CustomerSignup />
+          </GuestRoute>
+        } />
+        <Route path="register/staff" element={
+          <GuestRoute>
+            <StaffSignup />
+          </GuestRoute>
+        } />
 
-        {/* Customer Routes */}
-        <Route path="customer/dashboard" element={<CustomerDashboard />} />
-        <Route path="customer/vehicles" element={<VehicleList />} />
-        <Route path="customer/vehicles/add" element={<AddVehicle />} />
-        <Route path="customer/vehicles/:id/edit" element={<EditVehicle />} />
-        <Route path="customer/services" element={<CustomerServiceList />} />
-        <Route path="customer/appointments" element={<AppointmentList />} />
-        <Route path="customer/appointments/book" element={<BookAppointment />} />
-        <Route path="customer/appointments/:id" element={<CustomerAppointmentDetails />} />
-        <Route path="customer/profile" element={<CustomerProfile />} />
+        {/* Customer Routes - Only accessible to customers */}
+        <Route path="customer/dashboard" element={
+          <ProtectedRoute userType="customer">
+            <CustomerDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="customer/vehicles" element={
+          <ProtectedRoute userType="customer">
+            <VehicleList />
+          </ProtectedRoute>
+        } />
+        <Route path="customer/vehicles/add" element={
+          <ProtectedRoute userType="customer">
+            <AddVehicle />
+          </ProtectedRoute>
+        } />
+        <Route path="customer/vehicles/:id/edit" element={
+          <ProtectedRoute userType="customer">
+            <EditVehicle />
+          </ProtectedRoute>
+        } />
+        <Route path="customer/services" element={
+          <ProtectedRoute userType="customer">
+            <CustomerServiceList />
+          </ProtectedRoute>
+        } />
+        <Route path="customer/appointments" element={
+          <ProtectedRoute userType="customer">
+            <AppointmentList />
+          </ProtectedRoute>
+        } />
+        <Route path="customer/appointments/book" element={
+          <ProtectedRoute userType="customer">
+            <BookAppointment />
+          </ProtectedRoute>
+        } />
+        <Route path="customer/appointments/:id" element={
+          <ProtectedRoute userType="customer">
+            <CustomerAppointmentDetails />
+          </ProtectedRoute>
+        } />
+        <Route path="customer/profile" element={
+          <ProtectedRoute userType="customer">
+            <CustomerProfile />
+          </ProtectedRoute>
+        } />
 
-        {/* Staff Routes */}
-        <Route path="staff/dashboard" element={<StaffDashboard />} />
-        <Route path="staff/services" element={<ServiceManagement />} />
-        <Route path="staff/services/add" element={<AddService />} />
-        <Route path="staff/services/:id/edit" element={<EditService />} />
-        <Route path="staff/appointments" element={<StaffAppointments />} />
-        <Route path="staff/appointments/:id" element={<StaffAppointmentDetails />} />
-        <Route path="staff/schedule" element={<TimeSchedule />} />
-        <Route path="staff/reports" element={<Reports />} />
-        <Route path="staff/profile" element={<StaffProfile />} />
+        {/* Staff Routes - Only accessible to staff */}
+        <Route path="staff/dashboard" element={
+          <ProtectedRoute userType="staff">
+            <StaffDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="staff/services" element={
+          <ProtectedRoute userType="staff">
+            <ServiceManagement />
+          </ProtectedRoute>
+        } />
+        <Route path="staff/services/add" element={
+          <ProtectedRoute userType="staff">
+            <AddService />
+          </ProtectedRoute>
+        } />
+        <Route path="staff/services/:id/edit" element={
+          <ProtectedRoute userType="staff">
+            <EditService />
+          </ProtectedRoute>
+        } />
+        <Route path="staff/appointments" element={
+          <ProtectedRoute userType="staff">
+            <StaffAppointments />
+          </ProtectedRoute>
+        } />
+        <Route path="staff/appointments/:id" element={
+          <ProtectedRoute userType="staff">
+            <StaffAppointmentDetails />
+          </ProtectedRoute>
+        } />
+        <Route path="staff/schedule" element={
+          <ProtectedRoute userType="staff">
+            <TimeSchedule />
+          </ProtectedRoute>
+        } />
+        <Route path="staff/reports" element={
+          <ProtectedRoute userType="staff">
+            <Reports />
+          </ProtectedRoute>
+        } />
+        <Route path="staff/profile" element={
+          <ProtectedRoute userType="staff">
+            <StaffProfile />
+          </ProtectedRoute>
+        } />
       </Route>
     </Routes>
       </NotificationProvider>

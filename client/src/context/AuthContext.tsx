@@ -10,16 +10,22 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isCustomer: boolean;
+  isStaff: boolean;
   login: (userData: User) => void;
   logout: () => void;
+  checkAccess: (requiredUserType: string) => boolean;
 }
 
 // Create context with default values
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isAuthenticated: false,
+  isCustomer: false,
+  isStaff: false,
   login: () => {},
-  logout: () => {}
+  logout: () => {},
+  checkAccess: () => false
 });
 
 // Custom hook to use the auth context
@@ -32,6 +38,8 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const isCustomer = isAuthenticated && user?.userType === 'customer';
+  const isStaff = isAuthenticated && user?.userType === 'staff';
 
   // Check if user is already logged in on component mount
   useEffect(() => {
@@ -62,8 +70,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsAuthenticated(false);
   };
 
+  // Check if the user has access to a specific user type's resources
+  const checkAccess = (requiredUserType: string): boolean => {
+    if (!isAuthenticated || !user) return false;
+    return user.userType === requiredUserType;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated,
+      isCustomer,
+      isStaff,
+      login,
+      logout,
+      checkAccess
+    }}>
       {children}
     </AuthContext.Provider>
   );

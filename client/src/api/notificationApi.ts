@@ -18,8 +18,14 @@ export const getUserNotifications = async (
   userType: string,
   unreadOnly: boolean = false
 ): Promise<Notification[]> => {
-  const response = await axios.get(`/api/notifications/${userType}/${userId}?unreadOnly=${unreadOnly}`);
-  return response.data;
+  try {
+    const response = await axios.get(`/api/notifications/${userType}/${userId}?unreadOnly=${unreadOnly}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    // Return empty array on error to prevent UI crashes
+    return [];
+  }
 };
 
 // Mark notification as read

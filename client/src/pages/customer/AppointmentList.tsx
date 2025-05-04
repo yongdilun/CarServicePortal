@@ -24,6 +24,9 @@ const AppointmentList: React.FC = () => {
     if (timeClocktime) {
       const [hours, minutes] = timeClocktime.split(':').map(Number);
       appointmentDateTime.setHours(hours, minutes);
+    } else {
+      // If no time specified, set to end of day to avoid marking future appointments as past
+      appointmentDateTime.setHours(23, 59, 59);
     }
 
     const now = new Date();
@@ -130,7 +133,7 @@ const AppointmentList: React.FC = () => {
   const formatDate = (appointment: Appointment) => {
     if (!appointment.timeSlot) return 'N/A';
 
-    const { timeYear, timeMonth, timeDay, timeClocktime } = appointment.timeSlot;
+    const { timeYear, timeMonth, timeDay } = appointment.timeSlot;
     const date = new Date(timeYear, timeMonth - 1, timeDay);
 
     const options: Intl.DateTimeFormatOptions = {
@@ -270,7 +273,7 @@ const AppointmentList: React.FC = () => {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                 </svg>
                               ),
-                              color: "blue"
+                              color: "blue" as "blue"
                             },
                             ...(appointment.appointmentStatus === 'SCHEDULED' ? [
                               {
@@ -281,7 +284,7 @@ const AppointmentList: React.FC = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                   </svg>
                                 ),
-                                color: "red",
+                                color: "red" as "red",
                                 disabled: loading
                               }
                             ] : [])
@@ -346,7 +349,7 @@ const AppointmentList: React.FC = () => {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                 </svg>
                               ),
-                              color: "blue"
+                              color: "blue" as "blue"
                             }
                           ]}
                         />

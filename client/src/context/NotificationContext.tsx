@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-import { Notification, getUserNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../api/notificationApi';
+import { Notification } from '../api/notificationApi';
 
 interface NotificationContextType {
   notifications: Notification[];
@@ -42,6 +42,10 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
     try {
       setLoading(true);
       setError(null);
+
+      // Import the notificationApi dynamically to avoid circular dependencies
+      const { getUserNotifications } = await import('../api/notificationApi');
+
       const data = await getUserNotifications(user.id, user.userType);
       setNotifications(data);
     } catch (err: any) {
@@ -54,6 +58,9 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
 
   const markAsRead = async (notificationId: number) => {
     try {
+      // Import the notificationApi dynamically to avoid circular dependencies
+      const { markNotificationAsRead } = await import('../api/notificationApi');
+
       await markNotificationAsRead(notificationId);
 
       // Update local state
@@ -74,6 +81,9 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
     if (!user) return;
 
     try {
+      // Import the notificationApi dynamically to avoid circular dependencies
+      const { markAllNotificationsAsRead } = await import('../api/notificationApi');
+
       await markAllNotificationsAsRead(user.id, user.userType);
 
       // Update local state

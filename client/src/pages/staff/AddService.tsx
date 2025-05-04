@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { addService } from '../../api/serviceApi';
+// We'll import the createService function dynamically
 
 interface ServiceFormData {
   serviceType: string;
@@ -30,13 +30,17 @@ const AddService: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       setLoading(true);
       setError('');
-      
-      await addService(formData);
-      
+
+      // Import the staffApi dynamically to avoid circular dependencies
+      const { createService } = await import('../../api/staffApi');
+
+      await createService(formData);
+      console.log('Service created successfully');
+
       navigate('/staff/services');
     } catch (err: any) {
       setError('Failed to add service. ' + (err.response?.data?.error || err.message));
@@ -49,13 +53,13 @@ const AddService: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Add Service</h1>
-      
+
       {error && (
         <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
           <p>{error}</p>
         </div>
       )}
-      
+
       <div className="bg-white shadow-md rounded-lg p-6 mb-6">
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
@@ -72,7 +76,7 @@ const AddService: React.FC = () => {
               required
             />
           </div>
-          
+
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="serviceCategory">
               Category*
@@ -91,7 +95,7 @@ const AddService: React.FC = () => {
               ))}
             </select>
           </div>
-          
+
           <div className="mb-6">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="serviceDesc">
               Description*
@@ -106,10 +110,10 @@ const AddService: React.FC = () => {
               required
             />
           </div>
-          
+
           <div className="flex items-center justify-between">
-            <Link 
-              to="/staff/services" 
+            <Link
+              to="/staff/services"
               className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
             >
               Cancel
@@ -124,10 +128,10 @@ const AddService: React.FC = () => {
           </div>
         </form>
       </div>
-      
+
       <div className="mt-8">
-        <Link 
-          to="/staff/services" 
+        <Link
+          to="/staff/services"
           className="text-blue-500 hover:underline"
         >
           &larr; Back to Services

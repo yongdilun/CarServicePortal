@@ -37,7 +37,8 @@ public class ServiceService {
      * @param serviceId The service ID
      * @return The service or null if not found
      */
-    @Cacheable(value = "services", key = "#serviceId")
+    // Temporarily disable caching to avoid ClassCastException
+    // @Cacheable(value = "services", key = "#serviceId")
     public ServiceType findById(Integer serviceId) {
         logger.debug("Fetching service with ID: {} from database", serviceId);
         return serviceMapper.findById(serviceId);

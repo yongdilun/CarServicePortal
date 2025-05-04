@@ -21,7 +21,7 @@ const Header = () => {
     });
   }, [location]);
 
-  // If user is authenticated, show AuthHeader
+  // If user is authenticated, just show AuthHeader without any redirects
   if (isAuthenticated) {
     return <AuthHeader />;
   }

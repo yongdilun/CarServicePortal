@@ -43,17 +43,23 @@ public class NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
         notification.setLink(link);
 
-        // Store in database
-        notificationMapper.insert(notification);
+        try {
+            // Store in database
+            notificationMapper.insert(notification);
+            logger.debug("Notification stored in database: {}", notification.getNotificationId());
 
-        // Store in Redis if enabled
-        if (useRedisNotifications) {
-            try {
-                redisNotificationService.storeNotification(notification);
-            } catch (Exception e) {
-                logger.error("Failed to store notification in Redis", e);
-                // Continue with database storage even if Redis fails
+            // Store in Redis if enabled
+            if (useRedisNotifications) {
+                try {
+                    redisNotificationService.storeNotification(notification);
+                    logger.debug("Notification stored in Redis: {}", notification.getNotificationId());
+                } catch (Exception e) {
+                    logger.error("Failed to store notification in Redis: {}", e.getMessage(), e);
+                    // Continue with database storage even if Redis fails
+                }
             }
+        } catch (Exception e) {
+            logger.error("Failed to create notification: {}", e.getMessage(), e);
         }
 
         return notification;
@@ -196,51 +202,108 @@ public class NotificationService {
      * This is the main method you should use for appointment notifications
      */
     public void notifyCustomerAboutAppointment(ServiceAppointment appointment, String status) {
-        if (appointment == null || appointment.getCustId() == null) {
-            return; // Skip if appointment or required data is missing
+        try {
+            if (appointment == null || appointment.getCustId() == null) {
+                logger.warn("Cannot create notification: appointment or customer ID is null");
+                return; // Skip if appointment or required data is missing
+            }
+
+            String title;
+            String message;
+            String type = "appointment";
+
+            // Get service type name
+            String serviceTypeName = "your service";
+            try {
+                // Use the safe method to get service type
+                com.example.portal.model.ServiceType serviceType = appointment.getServiceTypeSafe();
+                if (serviceType != null && serviceType.getServiceType() != null) {
+                    serviceTypeName = serviceType.getServiceType();
+                    logger.debug("Got service type using getServiceTypeSafe: {}", serviceTypeName);
+                } else if (appointment.getService() != null) {
+                    // Fallback to the old approach if needed
+                    Object serviceObj = appointment.getService();
+                    logger.debug("Service object class: {}", serviceObj.getClass().getName());
+
+                    if (serviceObj instanceof com.example.portal.model.ServiceType) {
+                        serviceTypeName = ((com.example.portal.model.ServiceType) serviceObj).getServiceType();
+                        logger.debug("Got service type from ServiceType object: {}", serviceTypeName);
+                    } else if (serviceObj instanceof java.util.Map) {
+                        // Handle the case where service is a Map (including LinkedHashMap)
+                        @SuppressWarnings("unchecked")
+                        java.util.Map<String, Object> serviceMap = (java.util.Map<String, Object>) serviceObj;
+                        if (serviceMap.containsKey("serviceType")) {
+                            Object serviceTypeObj = serviceMap.get("serviceType");
+                            if (serviceTypeObj != null) {
+                                serviceTypeName = serviceTypeObj.toString();
+                                logger.debug("Extracted service type from Map: {}", serviceTypeName);
+                            }
+                        }
+                    } else {
+                        // Try to get service type using reflection
+                        try {
+                            java.lang.reflect.Method getTypeMethod = serviceObj.getClass().getMethod("getServiceType");
+                            Object result = getTypeMethod.invoke(serviceObj);
+                            if (result != null) {
+                                serviceTypeName = result.toString();
+                                logger.debug("Got service type using reflection: {}", serviceTypeName);
+                            }
+                        } catch (Exception e) {
+                            logger.warn("Could not get service type using reflection: {}", e.getMessage());
+                            logger.warn("Unexpected service object type: {}", serviceObj.getClass().getName());
+                        }
+                    }
+                } else if (appointment.getServiceId() != null) {
+                    // Try to get service type from service ID
+                    logger.debug("Service object is null, trying to get service type from service ID: {}", appointment.getServiceId());
+                }
+            } catch (Exception e) {
+                logger.error("Error getting service type name: {}", e.getMessage(), e);
+                // Continue with default service type name
+            }
+
+            // Set title and message based on status
+            switch (status) {
+                case "SCHEDULED":
+                    title = "Appointment Confirmed";
+                    message = "Your appointment for " + serviceTypeName + " has been confirmed.";
+                    break;
+                case "IN_PROGRESS":
+                    title = "Service Started";
+                    message = "Your " + serviceTypeName + " service has started.";
+                    type = "service";
+                    break;
+                case "COMPLETED":
+                    title = "Service Completed";
+                    message = "Your " + serviceTypeName + " service has been completed. Your vehicle is ready for pickup.";
+                    type = "service";
+                    break;
+                case "CANCELLED":
+                    title = "Appointment Cancelled";
+                    message = "Your appointment for " + serviceTypeName + " has been cancelled.";
+                    break;
+                default:
+                    title = "Appointment Update";
+                    message = "Your appointment for " + serviceTypeName + " has been updated to " + status + ".";
+            }
+
+            // Create the notification
+            String link = "/customer/appointments/" + appointment.getAppointmentId();
+
+            logger.debug("Creating notification for customer {} about appointment {}: {}",
+                    appointment.getCustId(), appointment.getAppointmentId(), title);
+
+            Notification notification = createNotification(appointment.getCustId(), "customer", title, message, type, link);
+
+            if (notification != null && notification.getNotificationId() != null) {
+                logger.debug("Successfully created notification ID {} for customer {}: {}",
+                        notification.getNotificationId(), appointment.getCustId(), title);
+            } else {
+                logger.warn("Notification might not have been created properly for customer {}", appointment.getCustId());
+            }
+        } catch (Exception e) {
+            logger.error("Error creating notification for appointment status change: {}", e.getMessage(), e);
         }
-
-        String title;
-        String message;
-        String type = "appointment";
-
-        // Get service type name
-        String serviceTypeName = "your service";
-        if (appointment.getService() != null) {
-            serviceTypeName = appointment.getService().getServiceType();
-        }
-
-        // Set title and message based on status
-        switch (status) {
-            case "SCHEDULED":
-                title = "Appointment Confirmed";
-                message = "Your appointment for " + serviceTypeName + " has been confirmed.";
-                break;
-            case "IN_PROGRESS":
-                title = "Service Started";
-                message = "Your " + serviceTypeName + " service has started.";
-                type = "service";
-                break;
-            case "COMPLETED":
-                title = "Service Completed";
-                message = "Your " + serviceTypeName + " service has been completed. Your vehicle is ready for pickup.";
-                type = "service";
-                break;
-            case "CANCELLED":
-                title = "Appointment Cancelled";
-                message = "Your appointment for " + serviceTypeName + " has been cancelled.";
-                break;
-            default:
-                title = "Appointment Update";
-                message = "Your appointment for " + serviceTypeName + " has been updated to " + status + ".";
-        }
-
-        // Create the notification
-        String link = "/customer/appointments/" + appointment.getAppointmentId();
-        createNotification(appointment.getCustId(), "customer", title, message, type, link);
-
-        // Log the notification for debugging
-        logger.debug("Created notification for customer {}: {}", appointment.getCustId(), title);
     }
 
     // Create notification and send email

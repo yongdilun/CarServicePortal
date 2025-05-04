@@ -40,6 +40,18 @@ public interface ServiceAppointmentMapper {
     @Select("SELECT * FROM SERVICEAPPOINTMENT WHERE cust_id = #{custId}")
     List<ServiceAppointment> findByCustomerId(Integer custId);
 
+    @Select("SELECT sa.*, c.*, s.*, so.*, t.*, v.*, st.* " +
+            "FROM SERVICEAPPOINTMENT sa " +
+            "JOIN CUSTOMER c ON sa.cust_id = c.cust_id " +
+            "JOIN SERVICE s ON sa.service_id = s.service_id " +
+            "JOIN SERVICEOUTLET so ON sa.outlet_id = so.outlet_id " +
+            "JOIN TIME t ON sa.time_id = t.time_id " +
+            "JOIN VEHICLE v ON sa.veh_id = v.veh_id " +
+            "LEFT JOIN STAFF st ON sa.staff_id = st.staff_id " +
+            "WHERE sa.cust_id = #{custId}")
+    @ResultMap("appointmentResultMap")
+    List<ServiceAppointment> findByCustomerIdWithDetails(Integer custId);
+
     @Select("SELECT * FROM SERVICEAPPOINTMENT WHERE staff_id = #{staffId}")
     List<ServiceAppointment> findByStaffId(Integer staffId);
 

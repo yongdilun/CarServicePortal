@@ -78,9 +78,17 @@ export const getAvailableTimeSlotsForOutlet = async (
 };
 
 // Get customer appointments
-export const getCustomerAppointments = async (custId: number): Promise<Appointment[]> => {
-  const response = await axios.get(`/api/customer/appointments?custId=${custId}`);
-  return response.data;
+export const getCustomerAppointments = async (custId?: number): Promise<Appointment[]> => {
+  try {
+    // The custId will be automatically added by the axios interceptor if not provided
+    const url = custId ? `/api/customer/appointments?custId=${custId}` : '/api/customer/appointments';
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching customer appointments:', error);
+    // Return empty array on error to prevent UI crashes
+    return [];
+  }
 };
 
 // Get appointment details
@@ -93,17 +101,34 @@ export const getAppointmentDetails = async (id: number): Promise<Appointment> =>
 export const createAppointment = async (
   appointment: AppointmentFormData & { custId: number }
 ): Promise<{ id: number; status: string; message: string }> => {
-  // Default values for cost and duration based on service type
-  // In a real app, these would be calculated based on the service
-  const appointmentData = {
-    ...appointment,
-    appointmentCost: 89.99,
-    appointmentDuration: 60
-    // staffId is set to 9999 (unassigned) on the server side
-  };
+  try {
+    // Default values for cost and duration based on service type
+    // In a real app, these would be calculated based on the service
+    const appointmentData = {
+      ...appointment,
+      appointmentCost: 89.99,
+      appointmentDuration: 60
+      // staffId is set to 9999 (unassigned) on the server side
+    };
 
-  const response = await axios.post('/api/customer/appointments', appointmentData);
-  return response.data;
+    console.log('Creating appointment with data:', appointmentData);
+
+    const response = await axios.post('/api/customer/appointments', appointmentData);
+    console.log('Appointment created successfully:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error creating appointment:', error);
+    if (error.response) {
+      console.error('Response data:', error.response.data);
+      console.error('Response status:', error.response.status);
+      console.error('Response headers:', error.response.headers);
+    } else if (error.request) {
+      console.error('No response received:', error.request);
+    } else {
+      console.error('Error setting up request:', error.message);
+    }
+    throw error;
+  }
 };
 
 // Cancel appointment
@@ -122,6 +147,23 @@ export const confirmAppointment = async (
   id: number,
   confirmationData: AppointmentConfirmationData
 ): Promise<{ id: number; status: string; message: string }> => {
-  const response = await axios.put(`/api/staff/appointments/${id}/confirm`, confirmationData);
-  return response.data;
+  try {
+    // Ensure staffId is a number
+    const data = {
+      ...confirmationData,
+      staffId: confirmationData.staffId ? Number(confirmationData.staffId) : undefined
+    };
+
+    console.log(`Confirming appointment ${id} with data:`, data);
+    const response = await axios.put(`/api/staff/appointments/${id}/confirm`, data);
+    console.log('Confirmation response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error in confirmAppointment API call:', error);
+    if (error.response) {
+      console.error('Response data:', error.response.data);
+      console.error('Response status:', error.response.status);
+    }
+    throw error; // Re-throw to be handled by the component
+  }
 };

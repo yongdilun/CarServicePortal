@@ -21,9 +21,16 @@ export interface VehicleFormData {
 
 // Get all vehicles for a customer
 export const getAllVehicles = async (custId?: number): Promise<Vehicle[]> => {
+  // The custId will be automatically added by the axios interceptor if not provided
   const url = custId ? `/api/customer/vehicles?custId=${custId}` : '/api/customer/vehicles';
-  const response = await axios.get(url);
-  return response.data;
+  try {
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching vehicles:', error);
+    // Return empty array on error to prevent UI crashes
+    return [];
+  }
 };
 
 // Get vehicle by ID

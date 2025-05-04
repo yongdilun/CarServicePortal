@@ -1,6 +1,7 @@
 package com.example.portal.service;
 
 import com.example.portal.model.ServiceAppointment;
+import com.example.portal.model.ServiceType;
 import com.example.portal.repository.ServiceAppointmentMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -44,9 +45,9 @@ public class ReportingService {
 
         // Group by service type and count
         Map<String, Long> serviceTypeCounts = appointments.stream()
-            .filter(appointment -> appointment.getService() != null)
+            .filter(appointment -> appointment.getServiceTypeSafe() != null && appointment.getServiceTypeSafe().getServiceType() != null)
             .collect(Collectors.groupingBy(
-                appointment -> appointment.getService().getServiceType(),
+                appointment -> appointment.getServiceTypeSafe().getServiceType(),
                 Collectors.counting()
             ));
 
@@ -252,17 +253,18 @@ public class ReportingService {
 
         // Calculate total revenue
         double totalRevenue = appointments.stream()
-            .filter(appointment -> appointment.getService() != null && appointment.getService().getServicePrice() != null)
-            .mapToDouble(appointment -> appointment.getService().getServicePrice())
+            .filter(appointment -> appointment.getServiceTypeSafe() != null && appointment.getServiceTypeSafe().getServicePrice() != null)
+            .mapToDouble(appointment -> appointment.getServiceTypeSafe().getServicePrice())
             .sum();
 
         // Group by service type
         Map<String, Double> revenueByService = new HashMap<>();
 
         appointments.forEach(appointment -> {
-            if (appointment.getService() != null && appointment.getService().getServicePrice() != null) {
-                String serviceType = appointment.getService().getServiceType();
-                double price = appointment.getService().getServicePrice();
+            ServiceType service = appointment.getServiceTypeSafe();
+            if (service != null && service.getServiceType() != null && service.getServicePrice() != null) {
+                String serviceType = service.getServiceType();
+                double price = service.getServicePrice();
 
                 revenueByService.put(
                     serviceType,
@@ -275,14 +277,15 @@ public class ReportingService {
         Map<String, Double> revenueByMonth = new HashMap<>();
 
         appointments.forEach(appointment -> {
+            ServiceType service = appointment.getServiceTypeSafe();
             if (appointment.getTimeSlot() != null &&
-                appointment.getService() != null &&
-                appointment.getService().getServicePrice() != null) {
+                service != null &&
+                service.getServicePrice() != null) {
 
                 int year = appointment.getTimeSlot().getTimeYear();
                 int month = appointment.getTimeSlot().getTimeMonth();
                 String monthKey = year + "-" + String.format("%02d", month);
-                double price = appointment.getService().getServicePrice();
+                double price = service.getServicePrice();
 
                 revenueByMonth.put(
                     monthKey,

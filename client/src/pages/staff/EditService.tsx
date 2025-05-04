@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { getServiceById, updateService, ServiceType } from '../../api/serviceApi';
+import { Service } from '../../api/staffApi';
 
 interface ServiceFormData {
   serviceType: string;
@@ -28,12 +28,17 @@ const EditService: React.FC = () => {
 
       try {
         setLoading(true);
+
+        // Import the staffApi dynamically to avoid circular dependencies
+        const { getServiceById } = await import('../../api/staffApi');
+
         const service = await getServiceById(parseInt(id));
+        console.log('Service data in EditService:', service);
 
         setFormData({
           serviceType: service.serviceType,
-          serviceDesc: service.serviceDesc,
-          serviceCategory: service.serviceCategory
+          serviceDesc: service.serviceDesc || service.serviceDescription || '',
+          serviceCategory: service.serviceCategory || ''
         });
 
         setError('');
@@ -64,7 +69,11 @@ const EditService: React.FC = () => {
       setSaving(true);
       setError('');
 
+      // Import the staffApi dynamically to avoid circular dependencies
+      const { updateService } = await import('../../api/staffApi');
+
       await updateService(parseInt(id), formData);
+      console.log('Service updated successfully');
 
       navigate('/staff/services');
     } catch (err: any) {

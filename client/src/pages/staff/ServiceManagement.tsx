@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllServices, deleteService, ServiceType } from '../../api/serviceApi';
+import { Service } from '../../api/staffApi';
 
 const ServiceManagement: React.FC = () => {
-  const [services, setServices] = useState<ServiceType[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -17,6 +17,10 @@ const ServiceManagement: React.FC = () => {
   const fetchServices = async () => {
     try {
       setLoading(true);
+
+      // Import the staffApi dynamically to avoid circular dependencies
+      const { getAllServices } = await import('../../api/staffApi');
+
       const data = await getAllServices();
       setServices(data);
       setError('');
@@ -31,6 +35,9 @@ const ServiceManagement: React.FC = () => {
   const handleDeleteService = async (serviceId: number) => {
     if (window.confirm('Are you sure you want to delete this service?')) {
       try {
+        // Import the staffApi dynamically to avoid circular dependencies
+        const { deleteService } = await import('../../api/staffApi');
+
         await deleteService(serviceId);
         // Remove the deleted service from the state
         setServices(services.filter(service => service.serviceId !== serviceId));
@@ -41,9 +48,13 @@ const ServiceManagement: React.FC = () => {
     }
   };
 
+  // Make sure we handle both serviceCategory and serviceDesc fields
   const filteredServices = selectedCategory === '' || selectedCategory === 'All'
     ? services
-    : services.filter(service => service.serviceCategory === selectedCategory);
+    : services.filter(service =>
+        service.serviceCategory === selectedCategory ||
+        (service.serviceDesc && service.serviceDesc.includes(selectedCategory))
+      );
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -113,10 +124,10 @@ const ServiceManagement: React.FC = () => {
                   <td className="py-3 px-4">{service.serviceType}</td>
                   <td className="py-3 px-4">
                     <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                      {service.serviceCategory}
+                      {service.serviceCategory || 'N/A'}
                     </span>
                   </td>
-                  <td className="py-3 px-4">{service.serviceDesc}</td>
+                  <td className="py-3 px-4">{service.serviceDesc || service.serviceDescription || 'No description'}</td>
                   <td className="py-3 px-4 text-center">
                     <div className="flex justify-center space-x-2">
                       <Link

@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import axios from '../../api/axios';
 import { Appointment } from '../../api/appointmentApi';
+import { StaffAppointment } from '../../api/staffApi';
 import { ActionMenu, ConfirmationDialog } from '../../components/ui';
 
 const StaffAppointments: React.FC = () => {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const initialFilter = queryParams.get('filter') || 'all';
 
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointments, setAppointments] = useState<(Appointment | StaffAppointment)[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState(initialFilter); // all, today, upcoming, completed, cancelled, in-progress
@@ -28,25 +29,15 @@ const StaffAppointments: React.FC = () => {
       try {
         setLoading(true);
 
-        // First try to get appointments for this specific staff
-        let response;
-        try {
-          response = await axios.get(`/api/staff/appointments?staffId=${user.id}`);
-        } catch (staffError) {
-          console.warn('Could not fetch staff-specific appointments, falling back to all appointments', staffError);
+        // Import the staffApi dynamically to avoid circular dependencies
+        const { getStaffAppointments } = await import('../../api/staffApi');
 
-          // If that fails, try to get all appointments (fallback)
-          response = await axios.get('/api/staff/appointments');
-        }
+        // Use the staffApi to get appointments
+        const appointments = await getStaffAppointments(user.id);
 
-        // Process the data
-        if (response && response.data) {
-          console.log('Fetched appointments:', response.data);
-          setAppointments(response.data);
-          setError('');
-        } else {
-          throw new Error('No appointment data received');
-        }
+        console.log('Fetched appointments:', appointments);
+        setAppointments(appointments);
+        setError('');
       } catch (err: any) {
         setError('Failed to load appointments. ' + (err.response?.data?.error || err.message));
         console.error('Error fetching appointments:', err);
@@ -76,7 +67,12 @@ const StaffAppointments: React.FC = () => {
   const updateAppointmentStatus = async (appointmentId: number, newStatus: string) => {
     try {
       setLoading(true);
-      await axios.put(`/api/staff/appointments/${appointmentId}/status`, { status: newStatus });
+
+      // Import the staffApi dynamically to avoid circular dependencies
+      const { updateAppointmentStatus: updateStatus } = await import('../../api/staffApi');
+
+      // Use the staffApi to update the status
+      await updateStatus(appointmentId, newStatus);
 
       // Update the appointment status in the local state
       setAppointments(appointments.map(appointment =>
@@ -97,7 +93,10 @@ const StaffAppointments: React.FC = () => {
     }
   };
 
-  const formatDate = (appointment: Appointment) => {
+  // Generic type that can be either Appointment or StaffAppointment
+  type AppointmentType = Appointment | StaffAppointment;
+
+  const formatDate = (appointment: AppointmentType) => {
     if (!appointment.timeSlot) return 'N/A';
 
     const { timeYear, timeMonth, timeDay } = appointment.timeSlot;
@@ -137,7 +136,7 @@ const StaffAppointments: React.FC = () => {
     }
   };
 
-  const isToday = (appointment: Appointment) => {
+  const isToday = (appointment: AppointmentType) => {
     if (!appointment.timeSlot) return false;
 
     const { timeYear, timeMonth, timeDay } = appointment.timeSlot;
@@ -149,7 +148,7 @@ const StaffAppointments: React.FC = () => {
       appointmentDate.getFullYear() === today.getFullYear();
   };
 
-  const isUpcoming = (appointment: Appointment) => {
+  const isUpcoming = (appointment: AppointmentType) => {
     if (!appointment.timeSlot) return false;
 
     const { timeYear, timeMonth, timeDay } = appointment.timeSlot;
@@ -161,7 +160,7 @@ const StaffAppointments: React.FC = () => {
   };
 
   // Helper function to check if an appointment is in the past
-  const isPast = (appointment: Appointment) => {
+  const isPast = (appointment: AppointmentType) => {
     if (!appointment.timeSlot) return false;
 
     const { timeYear, timeMonth, timeDay, timeClocktime } = appointment.timeSlot;
@@ -171,6 +170,9 @@ const StaffAppointments: React.FC = () => {
     if (timeClocktime) {
       const [hours, minutes] = timeClocktime.split(':').map(Number);
       appointmentDateTime.setHours(hours, minutes);
+    } else {
+      // If no time specified, set to end of day to avoid marking future appointments as past
+      appointmentDateTime.setHours(23, 59, 59);
     }
 
     const now = new Date();
@@ -409,25 +411,25 @@ const StaffAppointments: React.FC = () => {
                       actions={[
                         {
                           label: "View Details",
-                          onClick: () => window.location.href = `/staff/appointments/${appointment.appointmentId}`,
+                          onClick: () => navigate(`/staff/appointments/${appointment.appointmentId}`),
                           icon: (
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                           ),
-                          color: "blue"
+                          color: "blue" as "blue"
                         },
                         ...(appointment.appointmentStatus === 'PENDING' ? [
                           {
                             label: "Confirm Appointment",
-                            onClick: () => window.location.href = `/staff/appointments/${appointment.appointmentId}`,
+                            onClick: () => navigate(`/staff/appointments/${appointment.appointmentId}`),
                             icon: (
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
                             ),
-                            color: "purple"
+                            color: "purple" as "purple"
                           }
                         ] : []),
                         ...(appointment.appointmentStatus === 'SCHEDULED' ? [
@@ -440,7 +442,7 @@ const StaffAppointments: React.FC = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             ),
-                            color: "yellow",
+                            color: "yellow" as "yellow",
                             disabled: loading
                           }
                         ] : []),
@@ -453,7 +455,7 @@ const StaffAppointments: React.FC = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             ),
-                            color: "green",
+                            color: "green" as "green",
                             disabled: loading
                           }
                         ] : []),
@@ -466,7 +468,7 @@ const StaffAppointments: React.FC = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                               </svg>
                             ),
-                            color: "red",
+                            color: "red" as "red",
                             disabled: loading
                           }
                         ] : [])
@@ -518,7 +520,7 @@ const StaffAppointments: React.FC = () => {
                         actions={[
                           {
                             label: "View Details",
-                            onClick: () => window.location.href = `/staff/appointments/${appointment.appointmentId}`,
+                            onClick: () => navigate(`/staff/appointments/${appointment.appointmentId}`),
                             icon: (
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -583,28 +585,28 @@ const StaffAppointments: React.FC = () => {
                         actions={[
                           {
                             label: "View Details",
-                            onClick: () => window.location.href = `/staff/appointments/${appointment.appointmentId}`,
+                            onClick: () => navigate(`/staff/appointments/${appointment.appointmentId}`),
                             icon: (
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                               </svg>
                             ),
-                            color: "blue"
+                            color: "blue" as "blue"
                           },
                           ...(appointment.appointmentStatus === 'PENDING' ? [
                             {
                               label: "Confirm Appointment",
-                              onClick: () => window.location.href = `/staff/appointments/${appointment.appointmentId}`,
+                              onClick: () => navigate(`/staff/appointments/${appointment.appointmentId}`),
                               icon: (
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
                               ),
-                              color: "purple"
+                              color: "purple" as "purple"
                             }
                           ] : []),
-                          ...(appointment.appointmentStatus === 'SCHEDULED' && !isPast(appointment) ? [
+                          ...(appointment.appointmentStatus === 'SCHEDULED' ? [
                             {
                               label: "Start Service",
                               onClick: () => handleUpdateStatus(appointment.appointmentId, 'IN_PROGRESS'),
@@ -614,7 +616,7 @@ const StaffAppointments: React.FC = () => {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                               ),
-                              color: "yellow",
+                              color: "yellow" as "yellow",
                               disabled: loading
                             }
                           ] : []),
@@ -627,11 +629,11 @@ const StaffAppointments: React.FC = () => {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                               ),
-                              color: "green",
+                              color: "green" as "green",
                               disabled: loading
                             }
                           ] : []),
-                          ...((appointment.appointmentStatus === 'SCHEDULED' || appointment.appointmentStatus === 'IN_PROGRESS') && !isPast(appointment) ? [
+                          ...((appointment.appointmentStatus === 'SCHEDULED' || appointment.appointmentStatus === 'IN_PROGRESS') ? [
                             {
                               label: "Cancel Appointment",
                               onClick: () => handleUpdateStatus(appointment.appointmentId, 'CANCELLED'),
@@ -640,7 +642,7 @@ const StaffAppointments: React.FC = () => {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                               ),
-                              color: "red",
+                              color: "red" as "red",
                               disabled: loading
                             }
                           ] : [])
