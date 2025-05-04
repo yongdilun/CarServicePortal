@@ -6,11 +6,15 @@ import com.example.portal.repository.NotificationMapper;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Service for managing notifications with Redis caching
+ */
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
@@ -19,7 +23,15 @@ public class NotificationService {
 
     private final NotificationMapper notificationMapper;
     private final EmailService emailService;
+    private final RedisNotificationService redisNotificationService;
 
+    @Value("${app.notifications.use-redis:true}")
+    private boolean useRedisNotifications;
+
+    /**
+     * Create a new notification
+     * Stores in both database and Redis if Redis is enabled
+     */
     public Notification createNotification(Integer userId, String userType, String title, String message, String type, String link) {
         Notification notification = new Notification();
         notification.setUserId(userId);
@@ -31,31 +43,151 @@ public class NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
         notification.setLink(link);
 
+        // Store in database
         notificationMapper.insert(notification);
+
+        // Store in Redis if enabled
+        if (useRedisNotifications) {
+            try {
+                redisNotificationService.storeNotification(notification);
+            } catch (Exception e) {
+                logger.error("Failed to store notification in Redis", e);
+                // Continue with database storage even if Redis fails
+            }
+        }
+
         return notification;
     }
 
+    /**
+     * Get all notifications for a user
+     * Uses Redis if enabled, falls back to database
+     */
     public List<Notification> getUserNotifications(Integer userId, String userType) {
+        if (useRedisNotifications) {
+            try {
+                List<Notification> redisNotifications = redisNotificationService.getUserNotifications(userId, userType);
+                if (redisNotifications != null && !redisNotifications.isEmpty()) {
+                    logger.debug("Retrieved {} notifications from Redis for user {}:{}",
+                            redisNotifications.size(), userType, userId);
+                    return redisNotifications;
+                }
+            } catch (Exception e) {
+                logger.error("Failed to get notifications from Redis, falling back to database", e);
+            }
+        }
+
+        // Fall back to database
         return notificationMapper.findByUser(userId, userType);
     }
 
+    /**
+     * Get unread notifications for a user
+     * Uses Redis if enabled, falls back to database
+     */
     public List<Notification> getUnreadNotifications(Integer userId, String userType) {
+        if (useRedisNotifications) {
+            try {
+                List<Notification> unreadNotifications = redisNotificationService.getUnreadNotifications(userId, userType);
+                if (unreadNotifications != null) {
+                    logger.debug("Retrieved {} unread notifications from Redis for user {}:{}",
+                            unreadNotifications.size(), userType, userId);
+                    return unreadNotifications;
+                }
+            } catch (Exception e) {
+                logger.error("Failed to get unread notifications from Redis, falling back to database", e);
+            }
+        }
+
+        // Fall back to database
         return notificationMapper.findUnreadByUser(userId, userType);
     }
 
+    /**
+     * Mark a notification as read
+     * Updates both database and Redis if enabled
+     */
     public void markAsRead(Integer notificationId) {
+        // Update in database
         notificationMapper.markAsRead(notificationId);
+
+        if (useRedisNotifications) {
+            try {
+                // Get the notification to find user details
+                Notification notification = notificationMapper.findById(notificationId);
+                if (notification != null) {
+                    redisNotificationService.markNotificationAsRead(
+                            notificationId, notification.getUserId(), notification.getUserType());
+                }
+            } catch (Exception e) {
+                logger.error("Failed to mark notification as read in Redis", e);
+            }
+        }
     }
 
+    /**
+     * Mark all notifications as read for a user
+     * Updates both database and Redis if enabled
+     */
     public void markAllAsRead(Integer userId, String userType) {
+        // Update in database
         notificationMapper.markAllAsRead(userId, userType);
+
+        if (useRedisNotifications) {
+            try {
+                // Get all notifications and mark each as read in Redis
+                List<Notification> notifications = getUserNotifications(userId, userType);
+                for (Notification notification : notifications) {
+                    redisNotificationService.markNotificationAsRead(
+                            notification.getNotificationId(), userId, userType);
+                }
+            } catch (Exception e) {
+                logger.error("Failed to mark all notifications as read in Redis", e);
+            }
+        }
     }
 
+    /**
+     * Delete a notification
+     * Deletes from both database and Redis if enabled
+     */
     public void deleteNotification(Integer notificationId) {
+        if (useRedisNotifications) {
+            try {
+                // Get the notification to find user details
+                Notification notification = notificationMapper.findById(notificationId);
+                if (notification != null) {
+                    redisNotificationService.deleteNotification(
+                            notificationId, notification.getUserId(), notification.getUserType());
+                }
+            } catch (Exception e) {
+                logger.error("Failed to delete notification from Redis", e);
+            }
+        }
+
+        // Delete from database
         notificationMapper.delete(notificationId);
     }
 
+    /**
+     * Delete all notifications for a user
+     * Deletes from both database and Redis if enabled
+     */
     public void deleteAllUserNotifications(Integer userId, String userType) {
+        if (useRedisNotifications) {
+            try {
+                // Get all notifications and delete each from Redis
+                List<Notification> notifications = getUserNotifications(userId, userType);
+                for (Notification notification : notifications) {
+                    redisNotificationService.deleteNotification(
+                            notification.getNotificationId(), userId, userType);
+                }
+            } catch (Exception e) {
+                logger.error("Failed to delete all notifications from Redis", e);
+            }
+        }
+
+        // Delete from database
         notificationMapper.deleteAllForUser(userId, userType);
     }
 

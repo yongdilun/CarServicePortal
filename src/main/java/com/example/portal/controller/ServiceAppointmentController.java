@@ -3,6 +3,8 @@ package com.example.portal.controller;
 import com.example.portal.model.*;
 import com.example.portal.repository.*;
 import com.example.portal.service.NotificationService;
+import com.example.portal.service.ServiceOutletService;
+import com.example.portal.service.ServiceService;
 import com.example.portal.service.TimeSlotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,11 +24,11 @@ public class ServiceAppointmentController {
     private final CustomerMapper customerMapper;
     private final StaffMapper staffMapper;
     private final VehicleMapper vehicleMapper;
-    private final ServiceMapper serviceMapper;
-    private final ServiceOutletMapper outletMapper;
     private final TimeSlotMapper timeSlotMapper;
     private final TimeSlotService timeSlotService;
     private final NotificationService notificationService;
+    private final ServiceService serviceService;
+    private final ServiceOutletService outletService;
 
     // Customer endpoints
     @GetMapping("/customer/appointments")
@@ -50,13 +52,13 @@ public class ServiceAppointmentController {
         }
 
         // Validate service
-        ServiceType service = serviceMapper.findById(appointment.getServiceId());
+        ServiceType service = serviceService.findById(appointment.getServiceId());
         if (service == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid service ID"));
         }
 
         // Validate outlet
-        ServiceOutlet outlet = outletMapper.findById(appointment.getOutletId());
+        ServiceOutlet outlet = outletService.findById(appointment.getOutletId());
         if (outlet == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid outlet ID"));
         }
@@ -302,13 +304,13 @@ public class ServiceAppointmentController {
     // Public endpoints for services and outlets
     @GetMapping("/public/services")
     public ResponseEntity<?> getAllServices() {
-        List<ServiceType> services = serviceMapper.findAll();
+        List<ServiceType> services = serviceService.findAllServices();
         return ResponseEntity.ok(services);
     }
 
     @GetMapping("/public/outlets")
     public ResponseEntity<?> getAllOutlets() {
-        List<ServiceOutlet> outlets = outletMapper.findAll();
+        List<ServiceOutlet> outlets = outletService.findAllOutlets();
         return ResponseEntity.ok(outlets);
     }
 
