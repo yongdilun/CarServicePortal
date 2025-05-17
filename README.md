@@ -161,11 +161,8 @@ The Auto Service Portal follows a layered architecture:
 | Technology | Purpose |
 |------------|---------|
 | Git | Version Control |
-| Docker | Containerization |
 | GitHub Actions | CI/CD |
-| Nginx | Web Server |
-| JUnit | Backend Testing |
-| Jest | Frontend Testing |
+
 
 ## Project Structure
 
