@@ -5,7 +5,7 @@ spring:
   application:
     name: portal
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:portal_db}?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:portal_db}?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=true&sslMode=REQUIRED
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -16,16 +16,25 @@ spring:
     database-platform: org.hibernate.dialect.MySQLDialect
   sql:
     init:
-      mode: never
-      schema-locations: classpath:schema.sql
+      mode: never  # Default mode is never, use dev profile to enable initialization
+      schema-locations: classpath:schema_complete.sql
       continue-on-error: true
       platform: mysql
+  profiles:
+    active: dev  # Set to 'dev' for development, 'prod' for production
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL:false}
   cache:
-    type: none  # Disable caching
+    type: redis  # Enable Redis caching
+    redis:
+      time-to-live: 3600000  # Default TTL: 1 hour (in milliseconds)
+      cache-null-values: true
   security:
     user:
       name: ${ADMIN_USERNAME:admin}
@@ -58,8 +67,13 @@ logging:
     '[org.springframework.security]': INFO
     '[org.springframework.jdbc]': DEBUG
     '[org.hibernate.SQL]': DEBUG
+    '[org.springframework.data.redis]': DEBUG
+    '[org.springframework.cache]': DEBUG
+    '[io.lettuce.core]': INFO
 
 # Application specific settings
 app:
   email:
     enabled: false  # Set to true to enable email sending
+  cache:
+    use-redis: true  # Set to false to use in-memory cache instead of Redis

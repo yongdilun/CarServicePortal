@@ -1,0 +1,7 @@
+spring:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema_complete.sql
+      continue-on-error: true
+      platform: mysql

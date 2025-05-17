@@ -39,9 +39,11 @@ if not defined DB_PASSWORD set DB_PASSWORD=
 
 echo Database: %DB_NAME%
 echo User: %DB_USERNAME%
+echo Host: %DB_HOST%
+echo Port: %DB_PORT%
 
-REM Run the SQL script
-mysql -u%DB_USERNAME% -p%DB_PASSWORD% %DB_NAME% < src\main\resources\schema_complete.sql
+REM Run the SQL script with SSL required
+mysql -h%DB_HOST% -P%DB_PORT% -u%DB_USERNAME% -p%DB_PASSWORD% --ssl-mode=REQUIRED %DB_NAME% < src\main\resources\schema_complete.sql
 
 if %ERRORLEVEL% EQU 0 (
     echo.
